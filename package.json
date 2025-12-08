@@ -29,7 +29,7 @@
   },
   "build": {
     "appId": "com.screenannotation.app",
-    "productName": "ScreenAnnotation",
+    "productName": "Screen Pencil",
     "directories": {
       "output": "release"
     },
