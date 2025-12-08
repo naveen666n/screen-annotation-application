@@ -1,6 +1,6 @@
 {
   "name": "screen-annotation-app",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Screen annotation with brush, shapes, and magnifier for content creators",
   "main": "dist/main/index.js",
   "author": "Screen Annotation Team",
@@ -40,7 +40,7 @@
     "icon": "assets/icon.icns",
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/icon.icns",
+      "icon": "assets/app-icon-2.icns",
       "target": [
         "dmg",
         "zip"
@@ -49,14 +49,14 @@
       "gatekeeperAssess": false
     },
     "win": {
-      "icon": "assets/icon.png",
+      "icon": "assets/app-icon-2.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
-      "icon": "assets/icon.png",
+      "icon": "assets/app-icon-2.png",
       "target": [
         "AppImage",
         "deb"
