@@ -81,9 +81,10 @@ class ScreenAnnotationApp {
       toolbar.classList.add('dragging');
 
       // Get current toolbar position
+      // Calculate offset of click within toolbar (viewport-relative coordinates)
       const rect = toolbar.getBoundingClientRect();
-      initialX = e.clientX - rect.left + toolbar.offsetLeft - rect.width / 2;
-      initialY = e.clientY - rect.top + toolbar.offsetTop;
+      initialX = e.clientX - rect.left;
+      initialY = e.clientY - rect.top;
     });
 
     document.addEventListener('mousemove', (e: MouseEvent) => {
