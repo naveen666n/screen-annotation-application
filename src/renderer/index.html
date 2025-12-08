@@ -10,14 +10,97 @@
   <!-- Drawing Canvas -->
   <canvas id="canvas"></canvas>
 
-  <!-- Simple Toolbar -->
+  <!-- Toolbar -->
   <div id="toolbar">
-    <button id="brushBtn" class="active">Brush</button>
-    <button id="magnifierBtn">Magnifier</button>
-    <input type="color" id="colorPicker" value="#ff0000">
-    <input type="range" id="sizeSlider" min="2" max="20" value="5">
-    <button id="clearBtn">Clear</button>
-    <button id="quitBtn">Quit</button>
+    <!-- Drawing Tools -->
+    <div class="tool-group">
+      <button id="brushBtn" class="tool-btn active" title="Brush">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+        </svg>
+      </button>
+
+      <div class="shapes-container">
+        <button id="shapesBtn" class="tool-btn" title="Shapes">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+          </svg>
+        </button>
+        <div id="shapesDropdown" class="shapes-dropdown">
+          <button class="shape-option" data-shape="arrow" title="Arrow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+            <span>Arrow</span>
+          </button>
+          <button class="shape-option" data-shape="rectangle" title="Rectangle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18"></rect>
+            </svg>
+            <span>Rectangle</span>
+          </button>
+          <button class="shape-option" data-shape="circle" title="Circle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+            </svg>
+            <span>Circle</span>
+          </button>
+          <button class="shape-option" data-shape="line" title="Line">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="19" x2="19" y2="5"></line>
+            </svg>
+            <span>Line</span>
+          </button>
+          <button class="shape-option" data-shape="roundRect" title="Rounded Rectangle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="4"></rect>
+            </svg>
+            <span>Rounded</span>
+          </button>
+          <button class="shape-option" data-shape="star" title="Star">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>Star</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="magnifierBtn" class="tool-btn" title="Magnifier">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </button>
+
+      <button id="highlighterBtn" class="tool-btn" title="Mouse Highlighter">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="6" opacity="0.5"></circle>
+          <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Controls -->
+    <div class="tool-group">
+      <input type="color" id="colorPicker" value="#ff0000" title="Color">
+      <input type="range" id="sizeSlider" min="2" max="20" value="5" title="Size">
+    </div>
+
+    <!-- Actions -->
+    <div class="tool-group">
+      <button id="passThroughBtn" class="tool-btn" title="Pass Through Mode - Click through to other apps">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M2 12h20"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
+      <button id="clearBtn" class="action-btn">Clear</button>
+      <button id="quitBtn" class="action-btn quit">Quit</button>
+    </div>
   </div>
 
   <script src="app.js"></script>
