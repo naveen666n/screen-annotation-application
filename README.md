@@ -1,6 +1,6 @@
 # Screen Annotation App
 
-A simple, clean screen annotation application for macOS with brush drawing and magnifier tools.
+A simple, clean screen annotation application for macOS with brush drawing, professional shapes, and magnifier tools. Perfect for content creators, educators, and presenters.
 
 ## Features
 
@@ -10,16 +10,42 @@ A simple, clean screen annotation application for macOS with brush drawing and m
 - Full color picker for any color
 - Transparent overlay - see through while drawing
 
+### 📐 Professional Shapes for Content Creators
+Perfect for tutorials, presentations, and educational content:
+- **Arrow** ➡️ - Point to important elements, show direction
+- **Rectangle** ⬜ - Highlight areas, create boxes
+- **Circle** ⭕ - Circle important content
+- **Line** 📏 - Underline, connect elements
+- **Rounded Rectangle** ▢ - Modern alternative to sharp rectangles
+- **Star** ⭐ - Mark favorites or important points
+
+All shapes feature:
+- Live preview while drawing
+- Adjustable size and color
+- Smooth, professional appearance
+- Perfect for content creation
+
 ### 🔍 Magnifier Tool
 - 2x magnification for detailed work
 - Circular lens with crosshair for precision
 - Real-time magnification as you move cursor
 - Perfect for presentations and detailed annotations
 
+### 💡 Mouse Highlighter
+- Spotlight effect that follows your cursor
+- Dims screen except highlighted circular area
+- Colored glowing ring (uses your selected color)
+- Perfect for focusing attention in presentations
+- Great for tutorials and demonstrations
+
 ### 🎯 Core Functions
+- **Draggable Toolbar** - Move toolbar anywhere on screen by clicking and dragging
+- **Pass Through Mode** - Toggle click-through to control other apps while annotations stay visible
 - **Clear** - Remove all drawings instantly
 - **Quit** - Properly closes application (no hanging processes)
-- Simple toolbar with all essential controls
+- Organized toolbar with tool groups
+- Visual feedback on active tool
+- Works over fullscreen applications
 
 ### 🎨 Custom App Icon
 - Beautiful blue gradient icon with pen and magnifier
@@ -56,19 +82,82 @@ Output: `release/ScreenAnnotation-1.0.0.dmg`
 
 ## Usage
 
-### Drawing on Screen
-1. **Launch** the app - Brush tool is active by default
+### Drawing on Screen (Brush)
+1. **Launch** the app - Brush tool is active by default (✏️ emoji button)
 2. **Pick a color** - Click the color picker in toolbar
 3. **Adjust size** - Move the slider to change brush thickness
 4. **Draw** - Click and drag on the canvas
 5. **Clear** - Click "Clear" button to erase everything
 
+### Using Shapes
+Perfect for content creators making tutorials, presentations, or educational content:
+
+1. **Open Shapes Menu**:
+   - Click the Shapes button (rectangle icon) in toolbar
+   - A dropdown menu will appear with 6 shape options
+
+2. **Select a shape** from the menu:
+   - **Arrow** - Point and direct attention
+   - **Rectangle** - Box and highlight areas
+   - **Circle** - Circle important elements
+   - **Line** - Underline or connect
+   - **Rounded Rect** - Modern boxes
+   - **Star** - Mark favorites
+
+3. **Draw the shape**:
+   - Click and hold where you want to start
+   - Drag to size and position
+   - See live preview while dragging!
+   - Release to complete
+
+4. **Customize**:
+   - Choose color before drawing
+   - Adjust size slider for thicker/thinner lines
+   - All shapes use your current settings
+
 ### Using the Magnifier
-1. **Click "Magnifier"** button in toolbar
+1. **Click "Magnifier"** button (🔍) in toolbar
 2. **Move your mouse** around the screen
 3. **View magnified area** in circular lens (2x zoom)
 4. **See crosshair** for precise positioning
-5. **Switch back** to Brush to continue drawing
+5. **Switch back** to any tool to continue working
+
+### Using the Mouse Highlighter
+Perfect for presentations, tutorials, and focusing viewer attention:
+
+1. **Click "Mouse Highlighter"** button (⭕) in toolbar
+2. **Move your mouse** - spotlight follows your cursor automatically
+3. **Highlighted area** stays bright while rest of screen dims
+4. **Colored ring** glows around the highlight (matches your color picker)
+5. **Adjust color** - use color picker to change ring color
+6. **Switch back** to any tool when done
+
+**Best for:**
+- Live presentations and demos
+- Tutorial recordings
+- Highlighting specific areas
+- Focusing audience attention
+
+### Moving the Toolbar
+1. **Click and drag** on empty space in toolbar (not on buttons)
+2. **Toolbar follows** your mouse
+3. **Release** to place toolbar in new position
+4. **Position persists** until you move it again
+
+### Using Pass Through Mode
+Perfect for when you need to control other apps while keeping annotations visible:
+
+1. **Click "Pass Through"** button in toolbar
+2. **Button turns green** - Pass through mode is now active
+3. **Control other apps** - Click through the overlay to access:
+   - Menu bar items
+   - Dock applications
+   - Other application windows
+   - System controls
+4. **Your annotations remain visible** while you work
+5. **Click "Pass Through" again** to disable and resume drawing
+
+**Note**: While in pass through mode, you cannot draw or use tools until you toggle it off.
 
 ### Quitting the App
 - **Click "Quit"** button - App closes properly
@@ -360,12 +449,72 @@ This is a clean, minimal implementation. When contributing:
 
 ## Version History
 
-### 2.0.0 (Current)
+### 2.4.0 (Current) - Pro Features! ✨
+- ✨ NEW: Mouse Highlighter Tool
+  - Spotlight effect that follows your cursor
+  - Dims the screen except for a circular area around the mouse
+  - Perfect for presentations and tutorials
+  - Glowing colored ring matches your selected color
+  - Adjustable highlight size
+- ✨ NEW: Draggable Toolbar
+  - Click and drag toolbar anywhere on screen
+  - Position it wherever you need it
+  - Visual feedback while dragging
+  - Toolbar remembers position
+- 🔧 IMPROVED: Pass-Through Button
+  - Redesigned as compact tool button (not text button)
+  - Matches other tool buttons in size and style
+  - Hover tooltip shows description
+  - Green glow when active for clear visual feedback
+- 🔧 FIXED: Pass-through mode now keeps toolbar interactive
+  - Toolbar always remains clickable
+  - Seamlessly toggle pass-through on/off
+  - Perfect click-through behavior
+- All previous features enhanced and working perfectly
+
+### 2.3.0 - Enhanced Control & Fullscreen Support! 🚀
+- ✨ NEW: Pass-Through Mode Toggle
+  - Click "Pass Through" button to enable/disable click-through
+  - When enabled: Control other applications through the overlay
+  - Access menu bar, dock, and all system elements
+  - Visual indicator shows current mode (green when active)
+- 🔧 FIXED: Selected shape now highlights in dropdown menu
+  - Clear visual feedback for active shape
+  - Blue highlight shows which shape is currently selected
+- 🔧 FIXED: Works over fullscreen applications
+  - Window level set to 'pop-up-menu' for maximum compatibility
+  - Overlay appears even on fullscreen apps and games
+- ✨ Enhanced user control and flexibility
+- All previous features fully functional
+
+### 2.2.0 - Major UX Improvements! 🎉
+- 🔧 FIXED: Window now properly overlays ALL applications
+  - Set to highest z-level (screen-saver level)
+  - Works across all workspaces
+  - Truly always-on-top behavior
+- 🔧 FIXED: Proper SVG icons instead of emoji (better compatibility)
+- 🔧 FIXED: All shapes now in single dropdown menu
+  - Cleaner toolbar
+  - Better organization
+  - Easy shape selection
+- ✨ Enhanced dropdown with smooth animations
+- ✨ Window sized to full screen automatically
+- All existing features work perfectly
+
+### 2.1.0 - Shapes Update
+- ✨ NEW: 6 professional shapes for content creators
+  - Arrow, Rectangle, Circle, Line, Rounded Rectangle, Star
+- ✨ Live preview while drawing shapes
+- ✨ Improved toolbar with organized tool groups
+- ~15KB total codebase (still super lean!)
+
+### 2.0.0
 - Complete rewrite for simplicity and reliability
 - ✅ Brush tool with color and size controls
 - ✅ Magnifier tool with 2x zoom
+- ✅ Custom app icon
 - ✅ Proper quit handling (no hanging processes)
-- ✅ Clean codebase (~10KB)
+- ✅ Clean codebase
 - ✅ Fast loading and responsive
 
 ### 1.0.0 (Deprecated)

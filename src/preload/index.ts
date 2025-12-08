@@ -2,5 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // Expose minimal API to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Add API methods here as needed
+  toggleClickThrough: (enabled: boolean) => ipcRenderer.send('toggle-click-through', enabled),
+  setMouseOverToolbar: (isOver: boolean) => ipcRenderer.send('mouse-over-toolbar', isOver)
 });

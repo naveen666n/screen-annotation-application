@@ -29,50 +29,209 @@ body {
   background: rgba(40, 40, 40, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 12px;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   z-index: 10000;
+  cursor: move;
+  user-select: none;
 }
 
-button {
-  padding: 8px 16px;
+#toolbar.dragging {
+  cursor: grabbing;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+.tool-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tool-group:last-child {
+  border-right: none;
+}
+
+.tool-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.tool-btn.active {
+  background: rgba(66, 135, 245, 0.4);
+  border-color: rgba(66, 135, 245, 0.8);
+  box-shadow: 0 0 12px rgba(66, 135, 245, 0.4);
+}
+
+#passThroughBtn.active {
+  background: rgba(52, 199, 89, 0.4);
+  border-color: rgba(52, 199, 89, 0.8);
+  box-shadow: 0 0 12px rgba(52, 199, 89, 0.4);
+}
+
+.action-btn {
+  padding: 10px 18px;
   background: rgba(255, 255, 255, 0.1);
   border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.action-btn.quit {
+  background: rgba(255, 59, 48, 0.7);
+}
+
+.action-btn.quit:hover {
+  background: rgba(255, 59, 48, 1);
+}
+
+#colorPicker {
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#colorPicker:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+#sizeSlider {
+  width: 100px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+#sizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4287f5;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+}
+
+#sizeSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #5a9aff;
+}
+
+#sizeSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4287f5;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+}
+
+#sizeSlider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  background: #5a9aff;
+}
+
+/* Shapes Dropdown */
+.shapes-container {
+  position: relative;
+}
+
+.shapes-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: rgba(40, 40, 40, 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10001;
+  min-width: 150px;
+}
+
+.shapes-dropdown.show {
+  display: flex;
+}
+
+.shape-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   color: white;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
+  width: 100%;
+  text-align: left;
 }
 
-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+.shape-option:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(66, 135, 245, 0.5);
+  transform: translateX(4px);
 }
 
-button.active {
-  background: rgba(66, 135, 245, 0.5);
-  color: #fff;
+.shape-option.active {
+  background: rgba(66, 135, 245, 0.3);
+  border-color: rgba(66, 135, 245, 0.8);
+  box-shadow: 0 0 8px rgba(66, 135, 245, 0.3);
 }
 
-#colorPicker {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+.shape-option svg {
+  flex-shrink: 0;
 }
 
-#sizeSlider {
-  width: 100px;
-}
-
-#quitBtn {
-  background: rgba(255, 59, 48, 0.8);
-}
-
-#quitBtn:hover {
-  background: rgba(255, 59, 48, 1);
+.shape-option span {
+  flex: 1;
 }

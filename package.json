@@ -1,7 +1,7 @@
 {
   "name": "screen-annotation-app",
-  "version": "1.0.0",
-  "description": "Simple screen annotation with brush and magnifier",
+  "version": "2.4.0",
+  "description": "Screen annotation with brush, shapes, and magnifier for content creators",
   "main": "dist/main/index.js",
   "author": "Screen Annotation Team",
   "license": "MIT",
