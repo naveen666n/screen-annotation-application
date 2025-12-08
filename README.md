@@ -39,6 +39,7 @@ All shapes feature:
 - Great for tutorials and demonstrations
 
 ### 🎯 Core Functions
+- **Screenshot** - Save your annotations as PNG images with one click
 - **Draggable Toolbar** - Move toolbar anywhere on screen by clicking and dragging
 - **Pass Through Mode** - Toggle click-through to control other apps while annotations stay visible
 - **Clear** - Remove all drawings instantly
@@ -143,6 +144,22 @@ Perfect for presentations, tutorials, and focusing viewer attention:
 2. **Toolbar follows** your mouse
 3. **Release** to place toolbar in new position
 4. **Position persists** until you move it again
+
+### Taking Screenshots
+Save your annotations as image files:
+
+1. **Create your annotations** - Draw, highlight, or add shapes
+2. **Click Screenshot button** (📷 camera icon) in toolbar
+3. **Save dialog opens** - Choose location and filename
+4. **Click Save** - Screenshot saved as PNG image
+5. **Green flash** - Visual confirmation of successful save
+
+**Features:**
+- High-quality PNG format
+- Auto-hides highlighter overlay for clean capture
+- Default filename includes timestamp
+- Captures all your drawings and annotations
+- Perfect for tutorials, documentation, and sharing
 
 ### Using Pass Through Mode
 Perfect for when you need to control other apps while keeping annotations visible:
@@ -449,7 +466,17 @@ This is a clean, minimal implementation. When contributing:
 
 ## Version History
 
-### 2.4.0 (Current) - Pro Features! ✨
+### 2.5.0 (Current) - Screenshot Feature! 📸
+- ✨ NEW: Screenshot Capture & Save
+  - Click camera button to save your annotations
+  - Native save dialog - choose location and filename
+  - Saves as high-quality PNG image
+  - Auto-hides highlighter overlay for clean screenshots
+  - Visual feedback (green flash) when saved successfully
+  - Default filename with timestamp (screenshot-[timestamp].png)
+- All previous features working perfectly
+
+### 2.4.0 - Pro Features! ✨
 - ✨ NEW: Mouse Highlighter Tool
   - Spotlight effect that follows your cursor
   - Dims the screen except for a circular area around the mouse

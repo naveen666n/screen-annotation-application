@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 
 let mainWindow: BrowserWindow | null = null;
 let isPassThroughEnabled = false;
@@ -92,6 +93,37 @@ function updateMouseEvents() {
     mainWindow.setIgnoreMouseEvents(false);
   }
 }
+
+// Handle screenshot save
+ipcMain.handle('save-screenshot', async (event, dataUrl: string) => {
+  try {
+    // Show save dialog
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      title: 'Save Screenshot',
+      defaultPath: `screenshot-${Date.now()}.png`,
+      filters: [
+        { name: 'PNG Images', extensions: ['png'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    // Convert data URL to buffer
+    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Write file
+    fs.writeFileSync(result.filePath, buffer);
+
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('Error saving screenshot:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
 
 // Quit when all windows are closed (works on all platforms)
 app.on('window-all-closed', () => {

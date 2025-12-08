@@ -3,6 +3,7 @@ type Tool = 'brush' | 'magnifier' | 'highlighter' | 'arrow' | 'rectangle' | 'cir
 interface ElectronAPI {
   toggleClickThrough: (enabled: boolean) => void;
   setMouseOverToolbar: (isOver: boolean) => void;
+  saveScreenshot: (dataUrl: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
 }
 
 class ScreenAnnotationApp {
@@ -197,6 +198,7 @@ class ScreenAnnotationApp {
     const colorPicker = document.getElementById('colorPicker') as HTMLInputElement;
     const sizeSlider = document.getElementById('sizeSlider') as HTMLInputElement;
     const passThroughBtn = document.getElementById('passThroughBtn')!;
+    const screenshotBtn = document.getElementById('screenshotBtn')!;
     const clearBtn = document.getElementById('clearBtn')!;
     const quitBtn = document.getElementById('quitBtn')!;
 
@@ -207,6 +209,7 @@ class ScreenAnnotationApp {
       this.size = parseInt((e.target as HTMLInputElement).value);
     });
     passThroughBtn.addEventListener('click', () => this.togglePassThrough());
+    screenshotBtn.addEventListener('click', () => this.takeScreenshot());
     clearBtn.addEventListener('click', () => this.clear());
     quitBtn.addEventListener('click', () => this.quit());
 
@@ -591,6 +594,44 @@ class ScreenAnnotationApp {
     const electronAPI = (window as any).electronAPI as ElectronAPI;
     if (electronAPI) {
       electronAPI.toggleClickThrough(this.isPassThroughEnabled);
+    }
+  }
+
+  private async takeScreenshot() {
+    try {
+      // Hide highlighter overlay temporarily for clean screenshot
+      const highlighterWasVisible = this.highlighterCanvas?.style.display === 'block';
+      if (highlighterWasVisible && this.highlighterCanvas) {
+        this.highlighterCanvas.style.display = 'none';
+      }
+
+      // Convert canvas to data URL
+      const dataUrl = this.canvas.toDataURL('image/png');
+
+      // Restore highlighter if it was visible
+      if (highlighterWasVisible && this.highlighterCanvas) {
+        this.highlighterCanvas.style.display = 'block';
+      }
+
+      // Send to main process to save
+      const electronAPI = (window as any).electronAPI as ElectronAPI;
+      if (electronAPI) {
+        const result = await electronAPI.saveScreenshot(dataUrl);
+
+        if (result.success) {
+          console.log('Screenshot saved to:', result.filePath);
+          // Visual feedback - briefly flash the screenshot button
+          const screenshotBtn = document.getElementById('screenshotBtn')!;
+          screenshotBtn.style.backgroundColor = 'rgba(52, 199, 89, 0.5)';
+          setTimeout(() => {
+            screenshotBtn.style.backgroundColor = '';
+          }, 300);
+        } else if (!result.canceled) {
+          console.error('Failed to save screenshot:', result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error taking screenshot:', error);
     }
   }
 
