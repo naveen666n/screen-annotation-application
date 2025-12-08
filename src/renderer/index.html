@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Annotation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Drawing Canvas -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Simple Toolbar -->
+  <div id="toolbar">
+    <button id="brushBtn" class="active">Brush</button>
+    <button id="magnifierBtn">Magnifier</button>
+    <input type="color" id="colorPicker" value="#ff0000">
+    <input type="range" id="sizeSlider" min="2" max="20" value="5">
+    <button id="clearBtn">Clear</button>
+    <button id="quitBtn">Quit</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

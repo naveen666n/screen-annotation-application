@@ -1,0 +1,63 @@
+{
+  "name": "screen-annotation-app",
+  "version": "1.0.0",
+  "description": "Simple screen annotation with brush and magnifier",
+  "main": "dist/main/index.js",
+  "author": "Screen Annotation Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dev": "npm run build && cross-env NODE_ENV=development electron .",
+    "build": "npm run clean && npm run build:ts && npm run copy:files",
+    "build:ts": "tsc",
+    "copy:files": "copyfiles -u 2 \"src/renderer/**/*.html\" \"src/renderer/**/*.css\" dist/renderer",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "clean": "rm -rf dist release"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "concurrently": "^8.2.2",
+    "copyfiles": "^2.4.1",
+    "cross-env": "^10.1.0",
+    "electron": "^27.1.3",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.screenannotation.app",
+    "productName": "ScreenAnnotation",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    }
+  }
+}
