@@ -1,76 +1,33 @@
 # Assets Directory
 
-This directory contains application icons and resources.
+This directory contains the application icons and resources.
 
-## Required Icon Files
+## Icon Files (Already Created!)
 
-### macOS
-- **icon.icns**: macOS application icon (1024x1024 base resolution)
-  - Create using: `iconutil -c icns icon.iconset`
-  - Contains multiple resolutions: 16x16, 32x32, 128x128, 256x256, 512x512, 1024x1024
+The app comes with a custom icon featuring a pen/brush and magnifier on a blue gradient background, representing the two core features of the app.
 
-### Windows
-- **icon.ico**: Windows application icon
-  - Multi-resolution .ico file
-  - Recommended sizes: 16x16, 32x32, 48x48, 256x256
+### ✅ Available Icons
 
-### Linux
-- **icon.png**: Linux application icon
-  - Single PNG file: 512x512 or 1024x1024
+- **icon-1024.png** - Source PNG (1024x1024) for reference
+- **icon.icns** - macOS application icon (contains all required sizes)
+- **icon.png** - Linux/Windows icon (512x512)
+- **icon.iconset/** - macOS iconset with all sizes (16px to 1024px)
 
-## Creating Icons
+These icons are automatically used when building the application.
 
-### From PNG using ImageMagick
+## Icon Design
 
-#### macOS .icns
-```bash
-# Create iconset directory
-mkdir icon.iconset
+The icon features:
+- **Blue gradient background** - Modern, professional look
+- **White pen/brush** - Represents the drawing/annotation feature
+- **Magnifying glass** - Represents the zoom/magnifier feature
+- **Clean, simple design** - Recognizable at all sizes (16px to 1024px)
 
-# Generate multiple sizes
-sips -z 16 16     icon-1024.png --out icon.iconset/icon_16x16.png
-sips -z 32 32     icon-1024.png --out icon.iconset/icon_16x16@2x.png
-sips -z 32 32     icon-1024.png --out icon.iconset/icon_32x32.png
-sips -z 64 64     icon-1024.png --out icon.iconset/icon_32x32@2x.png
-sips -z 128 128   icon-1024.png --out icon.iconset/icon_128x128.png
-sips -z 256 256   icon-1024.png --out icon.iconset/icon_128x128@2x.png
-sips -z 256 256   icon-1024.png --out icon.iconset/icon_256x256.png
-sips -z 512 512   icon-1024.png --out icon.iconset/icon_256x256@2x.png
-sips -z 512 512   icon-1024.png --out icon.iconset/icon_512x512.png
-cp icon-1024.png icon.iconset/icon_512x512@2x.png
+## How Icons Are Used
 
-# Convert to icns
-iconutil -c icns icon.iconset
-```
+When you build the application:
+- **macOS**: `icon.icns` is embedded in the `.app` bundle at `Contents/Resources/`
+- **Windows**: `icon.png` is converted and embedded in the `.exe`
+- **Linux**: `icon.png` is included in AppImage and package files
 
-#### Windows .ico
-```bash
-convert icon.png -define icon:auto-resize=256,128,96,64,48,32,16 icon.ico
-```
-
-## Icon Design Guidelines
-
-- **Simple and Clear**: Recognizable at small sizes
-- **No Text**: Text becomes illegible at small sizes
-- **Transparent Background**: PNG with alpha channel
-- **Consistent Style**: Match application purpose
-- **High Contrast**: Visible in both light and dark modes
-
-## Placeholder Icons
-
-For development, you can use placeholder icons:
-1. Visit https://icon.kitchen or similar icon generator
-2. Create icons with a brush/pen design
-3. Export in all required formats
-4. Place in this directory
-
-## File Locations
-
-After building, icons appear in:
-- **macOS**: Inside .app bundle: `Contents/Resources/`
-- **Windows**: Embedded in .exe
-- **Linux**: Copied to application directory
-
----
-
-**Note**: Without custom icons, electron-builder will use default Electron icons.
+The icons are referenced in `package.json` under the `build` configuration.

@@ -37,8 +37,10 @@
       "dist/**/*",
       "assets/**/*"
     ],
+    "icon": "assets/icon.icns",
     "mac": {
       "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
       "target": [
         "dmg",
         "zip"
@@ -47,12 +49,14 @@
       "gatekeeperAssess": false
     },
     "win": {
+      "icon": "assets/icon.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
+      "icon": "assets/icon.png",
       "target": [
         "AppImage",
         "deb"

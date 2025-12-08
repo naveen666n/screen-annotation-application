@@ -21,6 +21,12 @@ A simple, clean screen annotation application for macOS with brush drawing and m
 - **Quit** - Properly closes application (no hanging processes)
 - Simple toolbar with all essential controls
 
+### 🎨 Custom App Icon
+- Beautiful blue gradient icon with pen and magnifier
+- Represents both core features (drawing + magnifying)
+- Professional appearance in dock and applications folder
+- No more default Electron icon!
+
 ## Quick Start
 
 ### Installation
