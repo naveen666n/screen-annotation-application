@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 let mainWindow: BrowserWindow | null = null;
+let whiteboardWindow: BrowserWindow | null = null;
 let isPassThroughEnabled = false;
 let isMouseOverToolbar = false;
 
@@ -35,10 +36,16 @@ function createWindow() {
   });
 
   // Set the window to be always on top at the highest level
-  // Use 'pop-up-menu' level to ensure it appears over fullscreen apps
-  mainWindow.setAlwaysOnTop(true, 'pop-up-menu', 1);
+  // Use 'screen-saver' level to ensure it appears over fullscreen apps on macOS
+  // This is the highest level that works over fullscreen applications
+  mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
   mainWindow.setVisibleOnAllWorkspaces(true);
   mainWindow.setFullScreenable(false);
+
+  // Additional settings for macOS to ensure overlay stays on top
+  if (process.platform === 'darwin') {
+    app.dock.hide(); // Hide from dock for cleaner UI
+  }
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
@@ -50,6 +57,44 @@ function createWindow() {
   // Handle window close - IMPORTANT: Actually close the window
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function createWhiteboardWindow() {
+  // Don't create multiple whiteboard windows
+  if (whiteboardWindow && !whiteboardWindow.isDestroyed()) {
+    whiteboardWindow.focus();
+    return;
+  }
+
+  whiteboardWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    backgroundColor: '#ffffff',
+    title: 'Whiteboard',
+    resizable: true,
+    movable: true,
+    minimizable: true,
+    maximizable: true,
+    alwaysOnTop: false, // Normal window, not always on top
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../preload/index.js')
+    }
+  });
+
+  whiteboardWindow.loadFile(path.join(__dirname, '../renderer/whiteboard.html'));
+
+  // Open DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    whiteboardWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  whiteboardWindow.on('closed', () => {
+    whiteboardWindow = null;
   });
 }
 
@@ -125,6 +170,11 @@ ipcMain.handle('save-screenshot', async (event, dataUrl: string) => {
   }
 });
 
+// Handle open whiteboard
+ipcMain.on('open-whiteboard', () => {
+  createWhiteboardWindow();
+});
+
 // Quit when all windows are closed (works on all platforms)
 app.on('window-all-closed', () => {
   app.quit();
@@ -136,5 +186,9 @@ app.on('before-quit', () => {
   if (mainWindow) {
     mainWindow.destroy();
     mainWindow = null;
+  }
+  if (whiteboardWindow) {
+    whiteboardWindow.destroy();
+    whiteboardWindow = null;
   }
 });
