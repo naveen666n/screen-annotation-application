@@ -36,15 +36,21 @@ function createWindow() {
   });
 
   // Set the window to be always on top at the highest level
-  // Use 'screen-saver' level to ensure it appears over fullscreen apps on macOS
-  // This is the highest level that works over fullscreen applications
-  mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
-  mainWindow.setVisibleOnAllWorkspaces(true);
+  // Use 'floating' level for better compatibility with fullscreen apps
+  mainWindow.setAlwaysOnTop(true, 'floating', 1);
+  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.setFullScreenable(false);
 
   // Additional settings for macOS to ensure overlay stays on top
   if (process.platform === 'darwin') {
     app.dock.hide(); // Hide from dock for cleaner UI
+
+    // Set window level to maximum to stay above fullscreen apps
+    // @ts-ignore - macOS specific API
+    if (mainWindow.setWindowButtonVisibility) {
+      // @ts-ignore
+      mainWindow.setWindowButtonVisibility(false);
+    }
   }
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));

@@ -1,10 +1,27 @@
-type Tool = 'brush' | 'select' | 'eraser' | 'text' | 'magnifier' | 'highlighter' | 'arrow' | 'rectangle' | 'circle' | 'line' | 'roundRect' | 'star';
+type Tool = 'brush' | 'select' | 'eraser' | 'text' | 'magnifier' | 'highlighter' | 'laserPointer' | 'arrow' | 'rectangle' | 'circle' | 'line' | 'roundRect' | 'star';
 
 interface ElectronAPI {
   toggleClickThrough: (enabled: boolean) => void;
   setMouseOverToolbar: (isOver: boolean) => void;
   saveScreenshot: (dataUrl: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
   openWhiteboard: () => void;
+}
+
+interface DrawObject {
+  type: 'brush' | 'shape' | 'text';
+  tool: Tool;
+  color: string;
+  size: number;
+  points?: Array<{ x: number; y: number }>; // For brush strokes
+  startX?: number; // For shapes
+  startY?: number;
+  endX?: number;
+  endY?: number;
+  text?: string; // For text objects
+  fontSize?: number;
+  x?: number; // Position for text
+  y?: number;
+  bounds?: { x: number; y: number; width: number; height: number }; // Bounding box for hit testing
 }
 
 class ScreenAnnotationApp {
@@ -28,7 +45,20 @@ class ScreenAnnotationApp {
   // Highlighter properties
   private highlighterCanvas: HTMLCanvasElement | null = null;
   private highlighterCtx: CanvasRenderingContext2D | null = null;
-  private highlighterSize = 100;
+  private highlighterSizeMultiplier = 10; // Multiplier to scale the size slider value
+
+  // Laser pointer properties
+  private laserPointerCanvas: HTMLCanvasElement | null = null;
+  private laserPointerCtx: CanvasRenderingContext2D | null = null;
+  private laserTrail: Array<{ x: number; y: number; age: number }> = [];
+  private laserPointerSizeMultiplier = 2; // Multiplier to scale the size slider value
+  private maxTrailLength = 15;
+
+  // Keyboard display properties
+  private isKeyDisplayEnabled = false;
+  private keyDisplayContainer: HTMLDivElement | null = null;
+  private activeKeys: Map<string, HTMLDivElement> = new Map();
+  private keyDisplayPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' = 'bottom-right';
 
   // Shape drawing properties
   private tempCanvas: HTMLCanvasElement | null = null;
@@ -58,6 +88,14 @@ class ScreenAnnotationApp {
   private currentBackground = 'transparent';
   private currentGrid = 'none';
 
+  // Object-based drawing for draggable items
+  private drawnObjects: DrawObject[] = [];
+  private selectedObject: DrawObject | null = null;
+  private isDraggingObject = false;
+  private dragOffsetX = 0;
+  private dragOffsetY = 0;
+  private currentStroke: DrawObject | null = null; // For tracking brush strokes in progress
+
   constructor() {
     this.canvas = document.getElementById('canvas') as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
@@ -66,6 +104,8 @@ class ScreenAnnotationApp {
     this.setupEventListeners();
     this.setupMagnifier();
     this.setupHighlighter();
+    this.setupLaserPointer();
+    this.setupKeyDisplay();
     this.setupTempCanvas();
     this.setupToolbarDragging();
 
@@ -177,6 +217,78 @@ class ScreenAnnotationApp {
     this.highlighterCtx = this.highlighterCanvas.getContext('2d')!;
   }
 
+  private setupLaserPointer() {
+    // Create laser pointer canvas overlay
+    this.laserPointerCanvas = document.createElement('canvas');
+    this.laserPointerCanvas.id = 'laserPointerCanvas';
+    this.laserPointerCanvas.width = window.innerWidth;
+    this.laserPointerCanvas.height = window.innerHeight;
+    this.laserPointerCanvas.style.position = 'absolute';
+    this.laserPointerCanvas.style.top = '0';
+    this.laserPointerCanvas.style.left = '0';
+    this.laserPointerCanvas.style.display = 'none';
+    this.laserPointerCanvas.style.pointerEvents = 'none';
+    this.laserPointerCanvas.style.zIndex = '9997';
+
+    document.body.appendChild(this.laserPointerCanvas);
+    this.laserPointerCtx = this.laserPointerCanvas.getContext('2d')!;
+
+    // Start animation loop for laser pointer
+    this.animateLaserPointer();
+  }
+
+  private setupKeyDisplay() {
+    // Create keyboard display container
+    this.keyDisplayContainer = document.createElement('div');
+    this.keyDisplayContainer.id = 'keyDisplayContainer';
+    this.keyDisplayContainer.style.position = 'fixed';
+    this.keyDisplayContainer.style.display = 'flex';
+    this.keyDisplayContainer.style.flexWrap = 'wrap';
+    this.keyDisplayContainer.style.gap = '8px';
+    this.keyDisplayContainer.style.zIndex = '10002';
+    this.keyDisplayContainer.style.pointerEvents = 'none';
+    this.keyDisplayContainer.style.padding = '20px';
+
+    this.updateKeyDisplayPosition();
+
+    document.body.appendChild(this.keyDisplayContainer);
+
+    // Add keyboard event listeners
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
+    document.addEventListener('keyup', this.handleKeyUp.bind(this));
+  }
+
+  private updateKeyDisplayPosition() {
+    if (!this.keyDisplayContainer) return;
+
+    switch (this.keyDisplayPosition) {
+      case 'top-left':
+        this.keyDisplayContainer.style.top = '0';
+        this.keyDisplayContainer.style.left = '0';
+        this.keyDisplayContainer.style.bottom = 'auto';
+        this.keyDisplayContainer.style.right = 'auto';
+        break;
+      case 'top-right':
+        this.keyDisplayContainer.style.top = '0';
+        this.keyDisplayContainer.style.right = '0';
+        this.keyDisplayContainer.style.bottom = 'auto';
+        this.keyDisplayContainer.style.left = 'auto';
+        break;
+      case 'bottom-left':
+        this.keyDisplayContainer.style.bottom = '0';
+        this.keyDisplayContainer.style.left = '0';
+        this.keyDisplayContainer.style.top = 'auto';
+        this.keyDisplayContainer.style.right = 'auto';
+        break;
+      case 'bottom-right':
+        this.keyDisplayContainer.style.bottom = '0';
+        this.keyDisplayContainer.style.right = '0';
+        this.keyDisplayContainer.style.top = 'auto';
+        this.keyDisplayContainer.style.left = 'auto';
+        break;
+    }
+  }
+
   private setupEventListeners() {
     // Canvas events
     this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
@@ -191,8 +303,11 @@ class ScreenAnnotationApp {
     const textBtn = document.getElementById('textBtn')!;
     const magnifierBtn = document.getElementById('magnifierBtn')!;
     const highlighterBtn = document.getElementById('highlighterBtn')!;
+    const laserPointerBtn = document.getElementById('laserPointerBtn')!;
     const shapesBtn = document.getElementById('shapesBtn')!;
     const shapesDropdown = document.getElementById('shapesDropdown')!;
+    const moreToolsBtn = document.getElementById('moreToolsBtn')!;
+    const moreToolsDropdown = document.getElementById('moreToolsDropdown')!;
 
     brushBtn.addEventListener('click', () => this.selectTool('brush'));
     selectBtn.addEventListener('click', () => this.selectTool('select'));
@@ -200,6 +315,7 @@ class ScreenAnnotationApp {
     textBtn.addEventListener('click', () => this.selectTool('text'));
     magnifierBtn.addEventListener('click', () => this.selectTool('magnifier'));
     highlighterBtn.addEventListener('click', () => this.selectTool('highlighter'));
+    laserPointerBtn.addEventListener('click', () => this.selectTool('laserPointer'));
 
     // Shapes dropdown toggle
     shapesBtn.addEventListener('click', (e) => {
@@ -221,6 +337,29 @@ class ScreenAnnotationApp {
     document.addEventListener('click', (e) => {
       if (!shapesBtn.contains(e.target as Node) && !shapesDropdown.contains(e.target as Node)) {
         shapesDropdown.classList.remove('show');
+      }
+    });
+
+    // More Tools dropdown toggle
+    moreToolsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moreToolsDropdown.classList.toggle('show');
+    });
+
+    // More Tools options
+    const keyDisplayOption = document.getElementById('keyDisplayOption')!;
+    keyDisplayOption.addEventListener('click', () => {
+      this.toggleKeyDisplay();
+      moreToolsDropdown.classList.remove('show');
+
+      // Toggle active state on the option
+      keyDisplayOption.classList.toggle('active');
+    });
+
+    // Close more tools dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!moreToolsBtn.contains(e.target as Node) && !moreToolsDropdown.contains(e.target as Node)) {
+        moreToolsDropdown.classList.remove('show');
       }
     });
 
@@ -331,6 +470,26 @@ class ScreenAnnotationApp {
   }
 
   private selectTool(tool: Tool) {
+    // Finalize any ongoing actions before switching tools
+    if (this.isEditingText) {
+      this.finalizeTextInput();
+    }
+
+    // If currently drawing, stop drawing
+    if (this.isDrawing) {
+      this.isDrawing = false;
+      this.savedImageData = null;
+    }
+
+    // If selecting, clear the selection state
+    if (this.isSelecting) {
+      this.isSelecting = false;
+      if (this.savedImageData) {
+        this.ctx.putImageData(this.savedImageData, 0, 0);
+        this.savedImageData = null;
+      }
+    }
+
     this.currentTool = tool;
 
     // Update UI - remove active class from all tool buttons
@@ -354,14 +513,12 @@ class ScreenAnnotationApp {
       document.getElementById('eraserBtn')?.classList.add('active');
     } else if (tool === 'text') {
       document.getElementById('textBtn')?.classList.add('active');
-      // Finalize any existing text input
-      if (this.isEditingText) {
-        this.finalizeTextInput();
-      }
     } else if (tool === 'magnifier') {
       document.getElementById('magnifierBtn')?.classList.add('active');
     } else if (tool === 'highlighter') {
       document.getElementById('highlighterBtn')?.classList.add('active');
+    } else if (tool === 'laserPointer') {
+      document.getElementById('laserPointerBtn')?.classList.add('active');
     } else if (shapeTools.includes(tool)) {
       document.getElementById('shapesBtn')?.classList.add('active');
       // Highlight selected shape in dropdown
@@ -384,6 +541,17 @@ class ScreenAnnotationApp {
       this.highlighterCanvas.style.display = 'block';
     }
 
+    // Hide laser pointer when switching away from it
+    if (tool !== 'laserPointer' && this.laserPointerCanvas) {
+      this.laserPointerCanvas.style.display = 'none';
+      this.laserTrail = [];
+    }
+
+    // Show laser pointer when switching to it
+    if (tool === 'laserPointer' && this.laserPointerCanvas) {
+      this.laserPointerCanvas.style.display = 'block';
+    }
+
     // Set appropriate cursor
     if (shapeTools.includes(tool)) {
       this.canvas.style.cursor = 'crosshair';
@@ -398,6 +566,8 @@ class ScreenAnnotationApp {
     } else if (tool === 'magnifier') {
       this.canvas.style.cursor = 'zoom-in';
     } else if (tool === 'highlighter') {
+      this.canvas.style.cursor = 'none';
+    } else if (tool === 'laserPointer') {
       this.canvas.style.cursor = 'none';
     }
   }
@@ -414,15 +584,23 @@ class ScreenAnnotationApp {
       const mouseX = e.clientX;
       const mouseY = e.clientY;
 
-      // Check if clicking inside existing selection
-      if (this.selectionRect && this.isInsideSelection(mouseX, mouseY)) {
-        // Start dragging the selection
+      // First check if clicking on a drawn object
+      const hitObject = this.hitTestObject(mouseX, mouseY);
+      if (hitObject) {
+        // Start dragging the object
+        this.selectedObject = hitObject;
+        this.isDraggingObject = true;
+        this.dragOffsetX = mouseX - (hitObject.bounds?.x || 0);
+        this.dragOffsetY = mouseY - (hitObject.bounds?.y || 0);
+        this.canvas.style.cursor = 'move';
+      } else if (this.selectionRect && this.isInsideSelection(mouseX, mouseY)) {
+        // Check if clicking inside existing rectangular selection
         this.isDraggingSelection = true;
         this.selectionOffsetX = mouseX - this.selectionRect.x;
         this.selectionOffsetY = mouseY - this.selectionRect.y;
         this.canvas.style.cursor = 'move';
       } else {
-        // Start new selection
+        // Start new rectangular selection
         this.clearSelection();
         this.isSelecting = true;
         this.startX = mouseX;
@@ -434,14 +612,20 @@ class ScreenAnnotationApp {
       this.lastX = e.clientX;
       this.lastY = e.clientY;
 
+      // Create new stroke object
+      this.currentStroke = {
+        type: 'brush',
+        tool: 'brush',
+        color: this.color,
+        size: this.size,
+        points: [{ x: this.lastX, y: this.lastY }]
+      };
+
       // Draw initial dot
       this.ctx.beginPath();
       this.ctx.arc(this.lastX, this.lastY, this.size / 2, 0, Math.PI * 2);
       this.ctx.fillStyle = this.color;
       this.ctx.fill();
-
-      // Save state for undo
-      this.saveState();
     } else if (this.currentTool === 'eraser') {
       this.isDrawing = true;
       this.lastX = e.clientX;
@@ -470,23 +654,44 @@ class ScreenAnnotationApp {
       const mouseX = e.clientX;
       const mouseY = e.clientY;
 
-      if (this.isSelecting && this.savedImageData) {
+      if (this.isDraggingObject && this.selectedObject) {
+        // Move the object
+        const newX = mouseX - this.dragOffsetX;
+        const newY = mouseY - this.dragOffsetY;
+        const deltaX = newX - (this.selectedObject.bounds?.x || 0);
+        const deltaY = newY - (this.selectedObject.bounds?.y || 0);
+
+        // Update object position
+        this.moveObject(this.selectedObject, deltaX, deltaY);
+
+        // Redraw canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.redrawAllObjects();
+      } else if (this.isSelecting && this.savedImageData) {
         // Draw selection rectangle preview
         this.ctx.putImageData(this.savedImageData, 0, 0);
+        this.redrawAllObjects();
         this.drawSelectionRect(this.startX, this.startY, mouseX, mouseY);
       } else if (this.isDraggingSelection && this.selectionRect && this.selectedImageData) {
-        // Move the selection
+        // Move the rectangular selection
         const newX = mouseX - this.selectionOffsetX;
         const newY = mouseY - this.selectionOffsetY;
         this.moveSelection(newX, newY);
-      } else if (this.selectionRect && this.isInsideSelection(mouseX, mouseY)) {
-        // Show move cursor when hovering over selection
-        this.canvas.style.cursor = 'move';
-      } else if (this.selectionRect) {
-        // Show default cursor when outside selection
-        this.canvas.style.cursor = 'default';
+      } else {
+        // Check if hovering over any object or selection
+        const hitObject = this.hitTestObject(mouseX, mouseY);
+        if (hitObject || (this.selectionRect && this.isInsideSelection(mouseX, mouseY))) {
+          this.canvas.style.cursor = 'move';
+        } else {
+          this.canvas.style.cursor = 'default';
+        }
       }
     } else if (this.currentTool === 'brush' && this.isDrawing) {
+      // Add point to current stroke
+      if (this.currentStroke && this.currentStroke.points) {
+        this.currentStroke.points.push({ x: e.clientX, y: e.clientY });
+      }
+
       this.drawLine(this.lastX, this.lastY, e.clientX, e.clientY);
       this.lastX = e.clientX;
       this.lastY = e.clientY;
@@ -505,6 +710,8 @@ class ScreenAnnotationApp {
       this.updateMagnifier(e.clientX, e.clientY);
     } else if (this.currentTool === 'highlighter') {
       this.updateHighlighter(e.clientX, e.clientY);
+    } else if (this.currentTool === 'laserPointer') {
+      this.updateLaserPointer(e.clientX, e.clientY);
     }
   }
 
@@ -512,7 +719,13 @@ class ScreenAnnotationApp {
     const shapeTools: Tool[] = ['arrow', 'rectangle', 'circle', 'line', 'roundRect', 'star'];
 
     if (this.currentTool === 'select') {
-      if (this.isSelecting) {
+      if (this.isDraggingObject) {
+        // Finished dragging object
+        this.isDraggingObject = false;
+        this.selectedObject = null;
+        this.canvas.style.cursor = 'default';
+        this.saveState();
+      } else if (this.isSelecting) {
         // Finalize selection
         const x = Math.min(this.startX, e.clientX);
         const y = Math.min(this.startY, e.clientY);
@@ -536,16 +749,37 @@ class ScreenAnnotationApp {
         this.isDraggingSelection = false;
         this.canvas.style.cursor = 'default';
       }
-    } else if (this.currentTool === 'brush') {
+    } else if (this.currentTool === 'brush' && this.isDrawing) {
       this.isDrawing = false;
+
+      // Save the completed brush stroke as an object
+      if (this.currentStroke && this.currentStroke.points && this.currentStroke.points.length > 0) {
+        this.currentStroke.bounds = this.calculateStrokeBounds(this.currentStroke.points, this.currentStroke.size);
+        this.drawnObjects.push(this.currentStroke);
+        this.currentStroke = null;
+        this.saveState();
+      }
     } else if (this.currentTool === 'eraser') {
       this.isDrawing = false;
     } else if (shapeTools.includes(this.currentTool) && this.isDrawing) {
-      // Finalize shape drawing
+      // Finalize shape drawing and save as object
       this.isDrawing = false;
-      this.savedImageData = null;
 
-      // Draw final shape (already drawn in handleMouseMove, just clean up)
+      const shapeObject: DrawObject = {
+        type: 'shape',
+        tool: this.currentTool,
+        color: this.color,
+        size: this.size,
+        startX: this.startX,
+        startY: this.startY,
+        endX: e.clientX,
+        endY: e.clientY,
+        bounds: this.calculateShapeBounds(this.startX, this.startY, e.clientX, e.clientY, this.currentTool)
+      };
+
+      this.drawnObjects.push(shapeObject);
+      this.savedImageData = null;
+      this.saveState();
     }
   }
 
@@ -744,6 +978,9 @@ class ScreenAnnotationApp {
   private updateHighlighter(mouseX: number, mouseY: number) {
     if (!this.highlighterCanvas || !this.highlighterCtx) return;
 
+    // Calculate highlighter size based on size slider
+    const highlighterSize = this.size * this.highlighterSizeMultiplier;
+
     // Clear previous highlighter
     this.highlighterCtx.clearRect(0, 0, this.highlighterCanvas.width, this.highlighterCanvas.height);
 
@@ -754,14 +991,14 @@ class ScreenAnnotationApp {
     // Create circular cutout for the highlight
     this.highlighterCtx.globalCompositeOperation = 'destination-out';
     this.highlighterCtx.beginPath();
-    this.highlighterCtx.arc(mouseX, mouseY, this.highlighterSize, 0, Math.PI * 2);
+    this.highlighterCtx.arc(mouseX, mouseY, highlighterSize, 0, Math.PI * 2);
     this.highlighterCtx.fillStyle = 'rgba(0, 0, 0, 1)';
     this.highlighterCtx.fill();
 
     // Draw glowing ring around the highlight
     this.highlighterCtx.globalCompositeOperation = 'source-over';
     this.highlighterCtx.beginPath();
-    this.highlighterCtx.arc(mouseX, mouseY, this.highlighterSize, 0, Math.PI * 2);
+    this.highlighterCtx.arc(mouseX, mouseY, highlighterSize, 0, Math.PI * 2);
     this.highlighterCtx.strokeStyle = this.color;
     this.highlighterCtx.lineWidth = 3;
     this.highlighterCtx.shadowBlur = 15;
@@ -770,6 +1007,195 @@ class ScreenAnnotationApp {
 
     // Reset shadow
     this.highlighterCtx.shadowBlur = 0;
+  }
+
+  private updateLaserPointer(mouseX: number, mouseY: number) {
+    // Add new point to trail
+    this.laserTrail.push({ x: mouseX, y: mouseY, age: 0 });
+
+    // Remove old points
+    if (this.laserTrail.length > this.maxTrailLength) {
+      this.laserTrail.shift();
+    }
+  }
+
+  private animateLaserPointer() {
+    if (!this.laserPointerCtx || !this.laserPointerCanvas) return;
+
+    // Clear canvas
+    this.laserPointerCtx.clearRect(0, 0, this.laserPointerCanvas.width, this.laserPointerCanvas.height);
+
+    // Draw trail
+    if (this.currentTool === 'laserPointer' && this.laserTrail.length > 0) {
+      // Convert hex color to RGB
+      const rgb = this.hexToRgb(this.color);
+
+      // Calculate laser pointer size based on size slider
+      const laserPointerSize = this.size * this.laserPointerSizeMultiplier;
+
+      for (let i = 0; i < this.laserTrail.length; i++) {
+        const point = this.laserTrail[i];
+        const opacity = (i + 1) / this.laserTrail.length;
+        const size = (laserPointerSize * opacity) / 2;
+
+        // Draw glow effect
+        this.laserPointerCtx.beginPath();
+        this.laserPointerCtx.arc(point.x, point.y, size + 5, 0, Math.PI * 2);
+        this.laserPointerCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity * 0.3})`;
+        this.laserPointerCtx.fill();
+
+        // Draw main pointer
+        this.laserPointerCtx.beginPath();
+        this.laserPointerCtx.arc(point.x, point.y, size, 0, Math.PI * 2);
+        this.laserPointerCtx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+        this.laserPointerCtx.fill();
+
+        // Draw bright center (lighter version of the color)
+        if (i === this.laserTrail.length - 1) {
+          this.laserPointerCtx.beginPath();
+          this.laserPointerCtx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
+          const brightR = Math.min(255, rgb.r + 100);
+          const brightG = Math.min(255, rgb.g + 100);
+          const brightB = Math.min(255, rgb.b + 100);
+          this.laserPointerCtx.fillStyle = `rgba(${brightR}, ${brightG}, ${brightB}, 1)`;
+          this.laserPointerCtx.fill();
+        }
+      }
+    }
+
+    // Continue animation loop
+    requestAnimationFrame(() => this.animateLaserPointer());
+  }
+
+  private hexToRgb(hex: string): { r: number; g: number; b: number } {
+    // Remove # if present
+    hex = hex.replace('#', '');
+
+    // Parse hex values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    return { r, g, b };
+  }
+
+  private toggleKeyDisplay() {
+    this.isKeyDisplayEnabled = !this.isKeyDisplayEnabled;
+
+    // Toggle button visual state
+    const keyDisplayBtn = document.getElementById('keyDisplayBtn')!;
+    if (this.isKeyDisplayEnabled) {
+      keyDisplayBtn.classList.add('active');
+    } else {
+      keyDisplayBtn.classList.remove('active');
+      // Clear all displayed keys
+      this.activeKeys.forEach(keyDiv => keyDiv.remove());
+      this.activeKeys.clear();
+    }
+  }
+
+  private handleKeyDown(e: KeyboardEvent) {
+    if (!this.isKeyDisplayEnabled) return;
+    if (this.isEditingText) return; // Don't show keys while editing text
+
+    // Ignore if key is already being displayed
+    if (this.activeKeys.has(e.code)) return;
+
+    // Get friendly key name
+    const keyName = this.getFriendlyKeyName(e);
+
+    // Create key display element
+    const keyDiv = document.createElement('div');
+    keyDiv.className = 'key-display';
+    keyDiv.textContent = keyName;
+    keyDiv.style.cssText = `
+      background: rgba(40, 40, 40, 0.95);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      border: 2px solid rgba(66, 135, 245, 0.8);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      animation: keyPop 0.2s ease-out;
+    `;
+
+    this.activeKeys.set(e.code, keyDiv);
+    this.keyDisplayContainer?.appendChild(keyDiv);
+
+    // Auto-remove after 2 seconds if key is held
+    setTimeout(() => {
+      if (this.activeKeys.has(e.code)) {
+        const div = this.activeKeys.get(e.code);
+        if (div) {
+          div.style.opacity = '0.5';
+        }
+      }
+    }, 2000);
+  }
+
+  private handleKeyUp(e: KeyboardEvent) {
+    if (!this.isKeyDisplayEnabled) return;
+
+    const keyDiv = this.activeKeys.get(e.code);
+    if (keyDiv) {
+      // Fade out animation
+      keyDiv.style.transition = 'opacity 0.3s, transform 0.3s';
+      keyDiv.style.opacity = '0';
+      keyDiv.style.transform = 'scale(0.8)';
+
+      setTimeout(() => {
+        keyDiv.remove();
+        this.activeKeys.delete(e.code);
+      }, 300);
+    }
+  }
+
+  private getFriendlyKeyName(e: KeyboardEvent): string {
+    // Special keys
+    const specialKeys: { [key: string]: string } = {
+      'Space': 'Space',
+      'Enter': 'Enter',
+      'Backspace': 'Backspace',
+      'Tab': 'Tab',
+      'Escape': 'Esc',
+      'ArrowUp': '↑',
+      'ArrowDown': '↓',
+      'ArrowLeft': '←',
+      'ArrowRight': '→',
+      'ShiftLeft': 'Shift',
+      'ShiftRight': 'Shift',
+      'ControlLeft': 'Ctrl',
+      'ControlRight': 'Ctrl',
+      'AltLeft': 'Alt',
+      'AltRight': 'Alt',
+      'MetaLeft': 'Cmd',
+      'MetaRight': 'Cmd',
+      'CapsLock': 'Caps Lock',
+      'Delete': 'Del',
+      'Home': 'Home',
+      'End': 'End',
+      'PageUp': 'PgUp',
+      'PageDown': 'PgDn'
+    };
+
+    if (specialKeys[e.code]) {
+      return specialKeys[e.code];
+    }
+
+    // For letter and number keys, use the key value
+    if (e.key.length === 1) {
+      return e.key.toUpperCase();
+    }
+
+    // Function keys
+    if (e.code.startsWith('F') && e.code.length <= 3) {
+      return e.code;
+    }
+
+    // Fallback to code
+    return e.code.replace('Key', '').replace('Digit', '');
   }
 
   private togglePassThrough() {
@@ -984,6 +1410,21 @@ class ScreenAnnotationApp {
         this.ctx.fillText(line, x, y + (index * this.fontSize * 1.2));
       });
 
+      // Create text object for dragging
+      const textObject: DrawObject = {
+        type: 'text',
+        tool: 'text',
+        color: this.color,
+        size: this.size,
+        text: text,
+        fontSize: this.fontSize,
+        x: x,
+        y: y,
+        bounds: this.calculateTextBounds(text, x, y, this.fontSize)
+      };
+
+      this.drawnObjects.push(textObject);
+
       // Save state for undo
       this.saveState();
     }
@@ -1086,6 +1527,165 @@ class ScreenAnnotationApp {
     // Clear selection
     this.selectedImageData = null;
     this.selectionRect = null;
+  }
+
+  // Object management methods for draggable items
+  private redrawAllObjects() {
+    // Redraw all stored objects
+    for (const obj of this.drawnObjects) {
+      this.drawObject(obj);
+    }
+  }
+
+  private drawObject(obj: DrawObject) {
+    if (obj.type === 'brush' && obj.points && obj.points.length > 0) {
+      // Draw brush stroke
+      this.ctx.strokeStyle = obj.color;
+      this.ctx.lineWidth = obj.size;
+      this.ctx.lineCap = 'round';
+      this.ctx.lineJoin = 'round';
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(obj.points[0].x, obj.points[0].y);
+      for (let i = 1; i < obj.points.length; i++) {
+        this.ctx.lineTo(obj.points[i].x, obj.points[i].y);
+      }
+      this.ctx.stroke();
+
+      // Draw initial dot if only one point
+      if (obj.points.length === 1) {
+        this.ctx.beginPath();
+        this.ctx.arc(obj.points[0].x, obj.points[0].y, obj.size / 2, 0, Math.PI * 2);
+        this.ctx.fillStyle = obj.color;
+        this.ctx.fill();
+      }
+    } else if (obj.type === 'shape' && obj.startX !== undefined && obj.startY !== undefined && obj.endX !== undefined && obj.endY !== undefined) {
+      // Draw shape
+      this.ctx.strokeStyle = obj.color;
+      this.ctx.fillStyle = obj.color;
+      this.ctx.lineWidth = obj.size;
+      this.drawShape(obj.startX, obj.startY, obj.endX, obj.endY, obj.tool);
+    } else if (obj.type === 'text' && obj.text && obj.x !== undefined && obj.y !== undefined && obj.fontSize) {
+      // Draw text
+      this.ctx.font = `${obj.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+      this.ctx.fillStyle = obj.color;
+      this.ctx.textBaseline = 'top';
+
+      const lines = obj.text.split('\n');
+      lines.forEach((line, index) => {
+        this.ctx.fillText(line, obj.x!, obj.y! + (index * obj.fontSize! * 1.2));
+      });
+    }
+  }
+
+  private hitTestObject(x: number, y: number): DrawObject | null {
+    // Check objects in reverse order (most recent first)
+    for (let i = this.drawnObjects.length - 1; i >= 0; i--) {
+      const obj = this.drawnObjects[i];
+      if (obj.bounds) {
+        // Add some padding for easier selection
+        const padding = 10;
+        if (
+          x >= obj.bounds.x - padding &&
+          x <= obj.bounds.x + obj.bounds.width + padding &&
+          y >= obj.bounds.y - padding &&
+          y <= obj.bounds.y + obj.bounds.height + padding
+        ) {
+          return obj;
+        }
+      }
+    }
+    return null;
+  }
+
+  private moveObject(obj: DrawObject, deltaX: number, deltaY: number) {
+    if (obj.type === 'brush' && obj.points) {
+      // Move all points
+      for (const point of obj.points) {
+        point.x += deltaX;
+        point.y += deltaY;
+      }
+    } else if (obj.type === 'shape') {
+      // Move shape endpoints
+      if (obj.startX !== undefined) obj.startX += deltaX;
+      if (obj.startY !== undefined) obj.startY += deltaY;
+      if (obj.endX !== undefined) obj.endX += deltaX;
+      if (obj.endY !== undefined) obj.endY += deltaY;
+    } else if (obj.type === 'text') {
+      // Move text position
+      if (obj.x !== undefined) obj.x += deltaX;
+      if (obj.y !== undefined) obj.y += deltaY;
+    }
+
+    // Update bounds
+    if (obj.bounds) {
+      obj.bounds.x += deltaX;
+      obj.bounds.y += deltaY;
+    }
+  }
+
+  private calculateStrokeBounds(points: Array<{ x: number; y: number }>, size: number): { x: number; y: number; width: number; height: number } {
+    if (points.length === 0) {
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
+
+    let minX = points[0].x;
+    let minY = points[0].y;
+    let maxX = points[0].x;
+    let maxY = points[0].y;
+
+    for (const point of points) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+
+    // Add padding for stroke width
+    const padding = size / 2;
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2
+    };
+  }
+
+  private calculateShapeBounds(startX: number, startY: number, endX: number, endY: number, tool: Tool): { x: number; y: number; width: number; height: number } {
+    const minX = Math.min(startX, endX);
+    const minY = Math.min(startY, endY);
+    const maxX = Math.max(startX, endX);
+    const maxY = Math.max(startY, endY);
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+  }
+
+  private calculateTextBounds(text: string, x: number, y: number, fontSize: number): { x: number; y: number; width: number; height: number } {
+    // Set font to measure text
+    this.ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+
+    const lines = text.split('\n');
+    let maxWidth = 0;
+
+    // Find the longest line
+    for (const line of lines) {
+      const metrics = this.ctx.measureText(line);
+      maxWidth = Math.max(maxWidth, metrics.width);
+    }
+
+    const height = lines.length * fontSize * 1.2;
+
+    return {
+      x: x,
+      y: y,
+      width: maxWidth,
+      height: height
+    };
   }
 }
 
