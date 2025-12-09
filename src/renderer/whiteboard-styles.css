@@ -1,0 +1,460 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body.grid-dots {
+  background-image: radial-gradient(circle, #ccc 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+body.grid-lines {
+  background-image:
+    linear-gradient(to right, #e0e0e0 1px, transparent 1px),
+    linear-gradient(to bottom, #e0e0e0 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+#canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  pointer-events: auto;
+}
+
+#canvas.text-mode {
+  cursor: text;
+}
+
+#canvas.eraser-mode {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>') 12 12, auto;
+}
+
+#canvas.select-mode {
+  cursor: crosshair;
+}
+
+/* Disable canvas when toolbar is hovered */
+#canvas.toolbar-hovered {
+  pointer-events: none;
+}
+
+#toolbar {
+  position: fixed;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  background: rgba(40, 40, 40, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  user-select: none;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Minimized toolbar state */
+#toolbar.minimized {
+  transform: translateX(-100%) translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Toggle button */
+.toolbar-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: rgba(66, 135, 245, 0.3);
+  border: 2px solid rgba(66, 135, 245, 0.6);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.toolbar-toggle:hover {
+  background: rgba(66, 135, 245, 0.5);
+  border-color: rgba(66, 135, 245, 0.9);
+  transform: scale(1.1);
+}
+
+.toolbar-toggle svg {
+  transition: transform 0.3s ease;
+}
+
+#toolbar.minimized .toolbar-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* Show button when toolbar is minimized */
+#toolbarShowBtn {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  background: rgba(66, 135, 245, 0.9);
+  border: none;
+  border-radius: 0 12px 12px 0;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+#toolbarShowBtn:hover {
+  background: rgba(66, 135, 245, 1);
+  transform: translateY(-50%) translateX(5px);
+  box-shadow: 0 6px 20px rgba(66, 135, 245, 0.5);
+}
+
+#toolbarShowBtn.visible {
+  display: flex;
+}
+
+/* Custom scrollbar for toolbar */
+#toolbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+#toolbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+#toolbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+#toolbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+  width: 100%;
+  position: relative;
+}
+
+.tool-group:last-child {
+  border-bottom: none;
+}
+
+/* Section labels */
+.tool-group::before {
+  content: attr(data-label);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tool-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.tool-btn.active {
+  background: rgba(66, 135, 245, 0.4);
+  border-color: rgba(66, 135, 245, 0.8);
+  box-shadow: 0 0 12px rgba(66, 135, 245, 0.4);
+}
+
+.tool-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tool-btn:disabled:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.action-btn {
+  padding: 10px 16px;
+  background: rgba(255, 69, 58, 0.7);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+  width: 52px;
+  text-align: center;
+}
+
+.action-btn:hover {
+  background: rgba(255, 69, 58, 0.9);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 69, 58, 0.4);
+}
+
+#colorPicker {
+  width: 52px;
+  height: 52px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+#colorPicker:hover {
+  border-color: rgba(66, 135, 245, 0.8);
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(66, 135, 245, 0.4);
+}
+
+#sizeSlider {
+  width: 52px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+#sizeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s;
+}
+
+#sizeSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+#sizeSlider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s;
+}
+
+#sizeSlider::-moz-range-thumb:hover {
+  transform: scale(1.3);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+.font-control {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+  width: 52px;
+  text-align: center;
+}
+
+.font-control:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.font-control option {
+  background: #2a2a2a;
+  color: white;
+}
+
+/* Shapes Dropdown */
+.shapes-container {
+  position: relative;
+  width: 100%;
+}
+
+.shapes-dropdown {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 8px;
+  background: rgba(40, 40, 40, 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10001;
+  min-width: 150px;
+}
+
+.shapes-dropdown.show {
+  display: flex;
+}
+
+.shape-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.shape-option:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(66, 135, 245, 0.5);
+  transform: translateX(4px);
+}
+
+.shape-option.active {
+  background: rgba(66, 135, 245, 0.3);
+  border-color: rgba(66, 135, 245, 0.8);
+  box-shadow: 0 0 8px rgba(66, 135, 245, 0.3);
+}
+
+.shape-option svg {
+  flex-shrink: 0;
+}
+
+.shape-option span {
+  flex: 1;
+}
+
+/* Background Dropdown */
+.background-dropdown {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 8px;
+  background: rgba(40, 40, 40, 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10001;
+  min-width: 150px;
+}
+
+.background-dropdown.show {
+  display: flex;
+}
+
+.background-dropdown hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.bg-option {
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 100%;
+  text-align: left;
+  font-weight: 500;
+}
+
+.bg-option:hover {
+  border-color: rgba(66, 135, 245, 0.5);
+  transform: translateX(4px);
+}
+
+/* Text input overlay */
+.text-input-overlay {
+  position: absolute;
+  z-index: 9999;
+  display: none;
+}
+
+.text-input-overlay.active {
+  display: block;
+}
+
+.text-input-overlay textarea {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #4287f5;
+  border-radius: 4px;
+  padding: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  resize: none;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

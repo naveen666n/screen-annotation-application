@@ -1,9 +1,10 @@
-type Tool = 'brush' | 'magnifier' | 'highlighter' | 'arrow' | 'rectangle' | 'circle' | 'line' | 'roundRect' | 'star';
+type Tool = 'brush' | 'select' | 'eraser' | 'text' | 'magnifier' | 'highlighter' | 'arrow' | 'rectangle' | 'circle' | 'line' | 'roundRect' | 'star';
 
 interface ElectronAPI {
   toggleClickThrough: (enabled: boolean) => void;
   setMouseOverToolbar: (isOver: boolean) => void;
   saveScreenshot: (dataUrl: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
+  openWhiteboard: () => void;
 }
 
 class ScreenAnnotationApp {
@@ -37,6 +38,26 @@ class ScreenAnnotationApp {
   // Click-through mode
   private isPassThroughEnabled = false;
 
+  // Select/Move tool
+  private selectedImageData: ImageData | null = null;
+  private selectionRect: { x: number; y: number; width: number; height: number } | null = null;
+  private isDraggingSelection = false;
+  private selectionOffsetX = 0;
+  private selectionOffsetY = 0;
+  private isSelecting = false;
+
+  // Toolbar hover state
+  private isMouseOverToolbar = false;
+
+  // Advanced features (available for both overlay and whiteboard)
+  private history: ImageData[] = [];
+  private historyStep = -1;
+  private fontSize = 24;
+  private textInput: HTMLTextAreaElement | null = null;
+  private isEditingText = false;
+  private currentBackground = 'transparent';
+  private currentGrid = 'none';
+
   constructor() {
     this.canvas = document.getElementById('canvas') as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
@@ -47,6 +68,9 @@ class ScreenAnnotationApp {
     this.setupHighlighter();
     this.setupTempCanvas();
     this.setupToolbarDragging();
+
+    // Initialize history
+    this.saveState();
 
     console.log('App initialized successfully');
   }
@@ -162,12 +186,18 @@ class ScreenAnnotationApp {
 
     // Tool buttons
     const brushBtn = document.getElementById('brushBtn')!;
+    const selectBtn = document.getElementById('selectBtn')!;
+    const eraserBtn = document.getElementById('eraserBtn')!;
+    const textBtn = document.getElementById('textBtn')!;
     const magnifierBtn = document.getElementById('magnifierBtn')!;
     const highlighterBtn = document.getElementById('highlighterBtn')!;
     const shapesBtn = document.getElementById('shapesBtn')!;
     const shapesDropdown = document.getElementById('shapesDropdown')!;
 
     brushBtn.addEventListener('click', () => this.selectTool('brush'));
+    selectBtn.addEventListener('click', () => this.selectTool('select'));
+    eraserBtn.addEventListener('click', () => this.selectTool('eraser'));
+    textBtn.addEventListener('click', () => this.selectTool('text'));
     magnifierBtn.addEventListener('click', () => this.selectTool('magnifier'));
     highlighterBtn.addEventListener('click', () => this.selectTool('highlighter'));
 
@@ -197,6 +227,8 @@ class ScreenAnnotationApp {
     // Controls
     const colorPicker = document.getElementById('colorPicker') as HTMLInputElement;
     const sizeSlider = document.getElementById('sizeSlider') as HTMLInputElement;
+    const fontSizeSelect = document.getElementById('fontSizeSelect') as HTMLSelectElement;
+    const whiteboardBtn = document.getElementById('whiteboardBtn')!;
     const passThroughBtn = document.getElementById('passThroughBtn')!;
     const screenshotBtn = document.getElementById('screenshotBtn')!;
     const clearBtn = document.getElementById('clearBtn')!;
@@ -208,25 +240,80 @@ class ScreenAnnotationApp {
     sizeSlider.addEventListener('input', (e) => {
       this.size = parseInt((e.target as HTMLInputElement).value);
     });
+    fontSizeSelect.addEventListener('change', (e) => {
+      this.fontSize = parseInt((e.target as HTMLSelectElement).value);
+    });
+    whiteboardBtn.addEventListener('click', () => this.openWhiteboard());
     passThroughBtn.addEventListener('click', () => this.togglePassThrough());
     screenshotBtn.addEventListener('click', () => this.takeScreenshot());
     clearBtn.addEventListener('click', () => this.clear());
     quitBtn.addEventListener('click', () => this.quit());
 
-    // Track mouse over toolbar for pass-through mode
+    // Whiteboard-specific controls
+    const undoBtn = document.getElementById('undoBtn')!;
+    const redoBtn = document.getElementById('redoBtn')!;
+    const backgroundBtn = document.getElementById('backgroundBtn')!;
+    const backgroundDropdown = document.getElementById('backgroundDropdown')!;
+
+    undoBtn.addEventListener('click', () => this.undo());
+    redoBtn.addEventListener('click', () => this.redo());
+
+    // Background dropdown toggle
+    backgroundBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      backgroundDropdown.classList.toggle('show');
+    });
+
+    // Background options
+    const bgOptions = document.querySelectorAll('.bg-option');
+    bgOptions.forEach(option => {
+      option.addEventListener('click', (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const bg = target.dataset.bg;
+        const grid = target.dataset.grid;
+
+        if (bg) {
+          this.changeBackground(bg);
+        } else if (grid) {
+          this.changeGrid(grid);
+        }
+
+        backgroundDropdown.classList.remove('show');
+      });
+    });
+
+    // Close background dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!backgroundBtn.contains(e.target as Node) && !backgroundDropdown.contains(e.target as Node)) {
+        backgroundDropdown.classList.remove('show');
+      }
+    });
+
+    // Track mouse over toolbar for pass-through mode and drawing prevention
     const toolbar = document.getElementById('toolbar')!;
     const electronAPI = (window as any).electronAPI as ElectronAPI;
 
     toolbar.addEventListener('mouseenter', () => {
+      this.isMouseOverToolbar = true;
       if (electronAPI) {
         electronAPI.setMouseOverToolbar(true);
       }
     });
 
     toolbar.addEventListener('mouseleave', () => {
+      this.isMouseOverToolbar = false;
       if (electronAPI) {
         electronAPI.setMouseOverToolbar(false);
       }
+    });
+
+    // Also track shapes dropdown
+    shapesDropdown.addEventListener('mouseenter', () => {
+      this.isMouseOverToolbar = true;
+    });
+
+    shapesDropdown.addEventListener('mouseleave', () => {
+      this.isMouseOverToolbar = false;
     });
 
     // Window resize
@@ -259,6 +346,18 @@ class ScreenAnnotationApp {
 
     if (tool === 'brush') {
       document.getElementById('brushBtn')?.classList.add('active');
+    } else if (tool === 'select') {
+      document.getElementById('selectBtn')?.classList.add('active');
+      // Clear any existing selection when switching to select tool
+      this.clearSelection();
+    } else if (tool === 'eraser') {
+      document.getElementById('eraserBtn')?.classList.add('active');
+    } else if (tool === 'text') {
+      document.getElementById('textBtn')?.classList.add('active');
+      // Finalize any existing text input
+      if (this.isEditingText) {
+        this.finalizeTextInput();
+      }
     } else if (tool === 'magnifier') {
       document.getElementById('magnifierBtn')?.classList.add('active');
     } else if (tool === 'highlighter') {
@@ -290,6 +389,12 @@ class ScreenAnnotationApp {
       this.canvas.style.cursor = 'crosshair';
     } else if (tool === 'brush') {
       this.canvas.style.cursor = 'crosshair';
+    } else if (tool === 'select') {
+      this.canvas.style.cursor = 'default';
+    } else if (tool === 'eraser') {
+      this.canvas.style.cursor = 'pointer';
+    } else if (tool === 'text') {
+      this.canvas.style.cursor = 'text';
     } else if (tool === 'magnifier') {
       this.canvas.style.cursor = 'zoom-in';
     } else if (tool === 'highlighter') {
@@ -298,9 +403,33 @@ class ScreenAnnotationApp {
   }
 
   private handleMouseDown(e: MouseEvent) {
+    // Don't draw if mouse is over toolbar
+    if (this.isMouseOverToolbar) {
+      return;
+    }
+
     const shapeTools: Tool[] = ['arrow', 'rectangle', 'circle', 'line', 'roundRect', 'star'];
 
-    if (this.currentTool === 'brush') {
+    if (this.currentTool === 'select') {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // Check if clicking inside existing selection
+      if (this.selectionRect && this.isInsideSelection(mouseX, mouseY)) {
+        // Start dragging the selection
+        this.isDraggingSelection = true;
+        this.selectionOffsetX = mouseX - this.selectionRect.x;
+        this.selectionOffsetY = mouseY - this.selectionRect.y;
+        this.canvas.style.cursor = 'move';
+      } else {
+        // Start new selection
+        this.clearSelection();
+        this.isSelecting = true;
+        this.startX = mouseX;
+        this.startY = mouseY;
+        this.savedImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      }
+    } else if (this.currentTool === 'brush') {
       this.isDrawing = true;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
@@ -310,6 +439,19 @@ class ScreenAnnotationApp {
       this.ctx.arc(this.lastX, this.lastY, this.size / 2, 0, Math.PI * 2);
       this.ctx.fillStyle = this.color;
       this.ctx.fill();
+
+      // Save state for undo
+      this.saveState();
+    } else if (this.currentTool === 'eraser') {
+      this.isDrawing = true;
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+
+      // Save state for undo
+      this.saveState();
+    } else if (this.currentTool === 'text') {
+      // Create text input at click position
+      this.createTextInput(e.clientX, e.clientY);
     } else if (shapeTools.includes(this.currentTool)) {
       // Start shape drawing
       this.isDrawing = true;
@@ -324,8 +466,32 @@ class ScreenAnnotationApp {
   private handleMouseMove(e: MouseEvent) {
     const shapeTools: Tool[] = ['arrow', 'rectangle', 'circle', 'line', 'roundRect', 'star'];
 
-    if (this.currentTool === 'brush' && this.isDrawing) {
+    if (this.currentTool === 'select') {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      if (this.isSelecting && this.savedImageData) {
+        // Draw selection rectangle preview
+        this.ctx.putImageData(this.savedImageData, 0, 0);
+        this.drawSelectionRect(this.startX, this.startY, mouseX, mouseY);
+      } else if (this.isDraggingSelection && this.selectionRect && this.selectedImageData) {
+        // Move the selection
+        const newX = mouseX - this.selectionOffsetX;
+        const newY = mouseY - this.selectionOffsetY;
+        this.moveSelection(newX, newY);
+      } else if (this.selectionRect && this.isInsideSelection(mouseX, mouseY)) {
+        // Show move cursor when hovering over selection
+        this.canvas.style.cursor = 'move';
+      } else if (this.selectionRect) {
+        // Show default cursor when outside selection
+        this.canvas.style.cursor = 'default';
+      }
+    } else if (this.currentTool === 'brush' && this.isDrawing) {
       this.drawLine(this.lastX, this.lastY, e.clientX, e.clientY);
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+    } else if (this.currentTool === 'eraser' && this.isDrawing) {
+      this.erase(this.lastX, this.lastY, e.clientX, e.clientY);
       this.lastX = e.clientX;
       this.lastY = e.clientY;
     } else if (shapeTools.includes(this.currentTool) && this.isDrawing && this.savedImageData) {
@@ -345,7 +511,34 @@ class ScreenAnnotationApp {
   private handleMouseUp(e: MouseEvent) {
     const shapeTools: Tool[] = ['arrow', 'rectangle', 'circle', 'line', 'roundRect', 'star'];
 
-    if (this.currentTool === 'brush') {
+    if (this.currentTool === 'select') {
+      if (this.isSelecting) {
+        // Finalize selection
+        const x = Math.min(this.startX, e.clientX);
+        const y = Math.min(this.startY, e.clientY);
+        const width = Math.abs(e.clientX - this.startX);
+        const height = Math.abs(e.clientY - this.startY);
+
+        if (width > 5 && height > 5) {
+          this.finalizeSelection(x, y, width, height);
+        } else {
+          // Selection too small, clear it
+          if (this.savedImageData) {
+            this.ctx.putImageData(this.savedImageData, 0, 0);
+          }
+        }
+
+        this.isSelecting = false;
+        this.savedImageData = null;
+      } else if (this.isDraggingSelection) {
+        // Paste selection
+        this.pasteSelection();
+        this.isDraggingSelection = false;
+        this.canvas.style.cursor = 'default';
+      }
+    } else if (this.currentTool === 'brush') {
+      this.isDrawing = false;
+    } else if (this.currentTool === 'eraser') {
       this.isDrawing = false;
     } else if (shapeTools.includes(this.currentTool) && this.isDrawing) {
       // Finalize shape drawing
@@ -635,6 +828,13 @@ class ScreenAnnotationApp {
     }
   }
 
+  private openWhiteboard() {
+    const electronAPI = (window as any).electronAPI as ElectronAPI;
+    if (electronAPI && electronAPI.openWhiteboard) {
+      electronAPI.openWhiteboard();
+    }
+  }
+
   private clear() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
@@ -642,6 +842,250 @@ class ScreenAnnotationApp {
   private quit() {
     // Close the window properly
     window.close();
+  }
+
+  // Whiteboard-specific methods
+  private saveState() {
+    // Remove any states after current step (for redo)
+    this.history = this.history.slice(0, this.historyStep + 1);
+
+    // Save current state
+    const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    this.history.push(imageData);
+    this.historyStep++;
+
+    // Limit history to 50 states to prevent memory issues
+    if (this.history.length > 50) {
+      this.history.shift();
+      this.historyStep--;
+    }
+
+    // Update undo/redo button states
+    this.updateUndoRedoButtons();
+  }
+
+  private undo() {
+    if (this.historyStep <= 0) return;
+
+    this.historyStep--;
+    const imageData = this.history[this.historyStep];
+    this.ctx.putImageData(imageData, 0, 0);
+    this.updateUndoRedoButtons();
+  }
+
+  private redo() {
+    if (this.historyStep >= this.history.length - 1) return;
+
+    this.historyStep++;
+    const imageData = this.history[this.historyStep];
+    this.ctx.putImageData(imageData, 0, 0);
+    this.updateUndoRedoButtons();
+  }
+
+  private updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undoBtn') as HTMLButtonElement;
+    const redoBtn = document.getElementById('redoBtn') as HTMLButtonElement;
+
+    if (undoBtn) {
+      undoBtn.disabled = this.historyStep <= 0;
+    }
+    if (redoBtn) {
+      redoBtn.disabled = this.historyStep >= this.history.length - 1;
+    }
+  }
+
+  private erase(x1: number, y1: number, x2: number, y2: number) {
+    const prevComposite = this.ctx.globalCompositeOperation;
+    this.ctx.globalCompositeOperation = 'destination-out';
+
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = 'rgba(0,0,0,1)';
+    this.ctx.lineWidth = this.size * 2;
+    this.ctx.lineCap = 'round';
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.stroke();
+
+    this.ctx.globalCompositeOperation = prevComposite;
+  }
+
+  private createTextInput(x: number, y: number) {
+    // Finalize existing text input if any
+    if (this.textInput) {
+      this.finalizeTextInput();
+    }
+
+    // Create textarea element
+    this.textInput = document.createElement('textarea');
+    this.textInput.style.position = 'fixed';
+    this.textInput.style.left = x + 'px';
+    this.textInput.style.top = y + 'px';
+    this.textInput.style.fontSize = this.fontSize + 'px';
+    this.textInput.style.color = this.color;
+    this.textInput.style.background = 'rgba(255, 255, 255, 0.9)';
+    this.textInput.style.border = '2px solid ' + this.color;
+    this.textInput.style.borderRadius = '4px';
+    this.textInput.style.padding = '8px';
+    this.textInput.style.zIndex = '9999';
+    this.textInput.style.minWidth = '200px';
+    this.textInput.style.minHeight = '40px';
+    this.textInput.style.resize = 'both';
+    this.textInput.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+    document.body.appendChild(this.textInput);
+
+    // Focus the text input
+    setTimeout(() => {
+      if (this.textInput) {
+        this.textInput.focus();
+        this.isEditingText = true;
+      }
+    }, 50);
+
+    // Handle blur and Enter key
+    setTimeout(() => {
+      if (this.textInput) {
+        this.textInput.addEventListener('blur', () => {
+          setTimeout(() => this.finalizeTextInput(), 100);
+        });
+
+        this.textInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            this.finalizeTextInput();
+          }
+        });
+      }
+    }, 100);
+  }
+
+  private finalizeTextInput() {
+    if (!this.textInput || !this.isEditingText) return;
+
+    const text = this.textInput.value.trim();
+    const x = parseFloat(this.textInput.style.left);
+    const y = parseFloat(this.textInput.style.top);
+
+    // Remove the text input element
+    if (this.textInput.parentNode) {
+      this.textInput.parentNode.removeChild(this.textInput);
+    }
+    this.textInput = null;
+    this.isEditingText = false;
+
+    // Draw the text on canvas if not empty
+    if (text) {
+      this.ctx.font = `${this.fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+      this.ctx.fillStyle = this.color;
+      this.ctx.textBaseline = 'top';
+
+      // Draw each line
+      const lines = text.split('\n');
+      lines.forEach((line, index) => {
+        this.ctx.fillText(line, x, y + (index * this.fontSize * 1.2));
+      });
+
+      // Save state for undo
+      this.saveState();
+    }
+  }
+
+  private changeBackground(bg: string) {
+    this.currentBackground = bg;
+    document.body.style.background = bg;
+  }
+
+  private changeGrid(grid: string) {
+    this.currentGrid = grid;
+    document.body.classList.remove('grid-dots', 'grid-lines');
+
+    if (grid === 'dots') {
+      document.body.classList.add('grid-dots');
+    } else if (grid === 'lines') {
+      document.body.classList.add('grid-lines');
+    }
+  }
+
+  // Selection helper methods
+  private clearSelection() {
+    if (this.selectionRect && this.selectedImageData) {
+      // Paste the selection back before clearing
+      this.ctx.putImageData(this.selectedImageData, this.selectionRect.x, this.selectionRect.y);
+    }
+    this.selectedImageData = null;
+    this.selectionRect = null;
+    this.isDraggingSelection = false;
+    this.isSelecting = false;
+  }
+
+  private isInsideSelection(x: number, y: number): boolean {
+    if (!this.selectionRect) return false;
+    return (
+      x >= this.selectionRect.x &&
+      x <= this.selectionRect.x + this.selectionRect.width &&
+      y >= this.selectionRect.y &&
+      y <= this.selectionRect.y + this.selectionRect.height
+    );
+  }
+
+  private drawSelectionRect(x1: number, y1: number, x2: number, y2: number) {
+    const x = Math.min(x1, x2);
+    const y = Math.min(y1, y2);
+    const width = Math.abs(x2 - x1);
+    const height = Math.abs(y2 - y1);
+
+    // Draw blue dashed rectangle
+    this.ctx.strokeStyle = '#4287f5';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.strokeRect(x, y, width, height);
+    this.ctx.setLineDash([]);
+  }
+
+  private finalizeSelection(x: number, y: number, width: number, height: number) {
+    // Store selection rectangle
+    this.selectionRect = { x, y, width, height };
+
+    // Cut the selected area
+    this.selectedImageData = this.ctx.getImageData(x, y, width, height);
+
+    // Clear the selected area (make it transparent)
+    this.ctx.clearRect(x, y, width, height);
+
+    // Redraw with selection border
+    this.drawSelectionRect(x, y, x + width, y + height);
+  }
+
+  private moveSelection(newX: number, newY: number) {
+    if (!this.selectionRect || !this.selectedImageData || !this.savedImageData) return;
+
+    // Restore canvas to clean state
+    this.ctx.putImageData(this.savedImageData, 0, 0);
+
+    // Update selection position
+    this.selectionRect.x = newX;
+    this.selectionRect.y = newY;
+
+    // Draw image at new position
+    this.ctx.putImageData(this.selectedImageData, newX, newY);
+
+    // Draw selection border at new position
+    this.drawSelectionRect(
+      newX,
+      newY,
+      newX + this.selectionRect.width,
+      newY + this.selectionRect.height
+    );
+  }
+
+  private pasteSelection() {
+    if (!this.selectionRect || !this.selectedImageData) return;
+
+    // Paste the selection at current position
+    this.ctx.putImageData(this.selectedImageData, this.selectionRect.x, this.selectionRect.y);
+
+    // Clear selection
+    this.selectedImageData = null;
+    this.selectionRect = null;
   }
 }
 
