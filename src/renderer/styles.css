@@ -333,3 +333,80 @@ body.grid-lines {
   border-color: rgba(66, 135, 245, 0.5);
   transform: translateX(4px);
 }
+
+/* More Tools Dropdown */
+.more-tools-container {
+  position: relative;
+}
+
+.more-tools-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: rgba(40, 40, 40, 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10001;
+  min-width: 180px;
+}
+
+.more-tools-dropdown.show {
+  display: flex;
+}
+
+.tool-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.tool-option:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(66, 135, 245, 0.5);
+  transform: translateX(4px);
+}
+
+.tool-option.active {
+  background: rgba(66, 135, 245, 0.3);
+  border-color: rgba(66, 135, 245, 0.8);
+  box-shadow: 0 0 8px rgba(66, 135, 245, 0.3);
+}
+
+.tool-option svg {
+  flex-shrink: 0;
+}
+
+.tool-option span {
+  flex: 1;
+}
+
+/* Key Display Animation */
+@keyframes keyPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
