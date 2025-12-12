@@ -2,6 +2,9 @@
 
 A powerful Electron-based screen annotation and whiteboard application for content creators, educators, and presenters. Features transparent overlay annotations, draggable objects, and comprehensive drawing tools.
 
+[DOWNLOAD APPLICATION](https://mega.nz/folder/0V8mWITK#yvXE5D9qfMQuKopU54UIdw)
+
+
 ## Features
 
 ### Core Drawing Tools
